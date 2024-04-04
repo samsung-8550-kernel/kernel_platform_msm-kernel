@@ -193,6 +193,7 @@ extern void _trace_android_vh_delayacct_add_tsk(struct taskstats *d,
 						struct task_struct *tsk,
 						int *ret);
 extern void _trace_android_vh_delayacct_blkio_ticks(struct task_struct *tsk, __u64 *ret);
+extern void _trace_android_vh_delayacct_blkio_nsecs(struct task_struct *tsk, __u64 *ret);
 extern void _trace_android_vh_delayacct_is_task_waiting_on_io(struct task_struct *p, int *ret);
 extern void _trace_android_vh_delayacct_freepages_start(void);
 extern void _trace_android_vh_delayacct_freepages_end(void);
@@ -258,7 +259,14 @@ static inline __u64 delayacct_blkio_ticks(struct task_struct *tsk)
 }
 #ifdef CONFIG_PAGE_BOOST
 static inline __u64 delayacct_blkio_nsecs(struct task_struct *tsk)
-{ return 0; }
+{
+	__u64 ret = 0;
+
+	if (get_delayacct_enabled())
+		_trace_android_vh_delayacct_blkio_nsecs(tsk, &ret);
+
+	return ret;
+}
 #endif
 static inline int delayacct_is_task_waiting_on_io(struct task_struct *p)
 {

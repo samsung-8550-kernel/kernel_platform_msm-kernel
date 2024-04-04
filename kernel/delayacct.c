@@ -286,6 +286,11 @@ void _trace_android_vh_delayacct_blkio_ticks(struct task_struct *tsk, __u64 *ret
 	trace_android_vh_delayacct_blkio_ticks(tsk, ret);
 }
 
+void _trace_android_vh_delayacct_blkio_nsecs(struct task_struct *tsk, __u64 *ret)
+{
+	trace_android_vh_delayacct_blkio_nsecs(tsk, ret);
+}
+
 void _trace_android_vh_delayacct_is_task_waiting_on_io(struct task_struct *p, int *ret)
 {
 	trace_android_vh_delayacct_is_task_waiting_on_io(p, ret);
