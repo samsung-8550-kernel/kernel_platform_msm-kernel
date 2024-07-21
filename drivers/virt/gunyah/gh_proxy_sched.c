@@ -293,8 +293,11 @@ static int gh_populate_vm_vcpu_info(gh_vmid_t vmid, gh_label_t cpu_idx,
 		goto out;
 	}
 
-	if (!gh_rm_get_vmid(GH_TRUSTED_VM, &temp_vmid) && temp_vmid != vmid) {
-		pr_info("Skip populating VCPU affinity info for VM=%d", vmid);
+	if ((!gh_rm_get_vmid(GH_TRUSTED_VM, &temp_vmid) && temp_vmid != vmid) &&
+	    (!gh_rm_get_vmid(GH_OEM_VM, &temp_vmid) && temp_vmid != vmid) &&
+		(!gh_rm_get_vmid(GH_ROBOTICS_VM1, &temp_vmid) && temp_vmid != vmid) &&
+		(!gh_rm_get_vmid(GH_ROBOTICS_VM2, &temp_vmid) && temp_vmid != vmid)) {
+		pr_info("Skip populating VCPU affinity info for VM=%d\n", vmid);
 		goto out;
 	}
 

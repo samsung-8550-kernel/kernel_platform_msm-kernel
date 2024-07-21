@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(msg) "slatecom: %s: " msg, __func__
@@ -44,7 +44,7 @@
 #define HED_EVENT_DATA_STRT_LEN (0x05)
 #define CMA_BFFR_POOL_SIZE (128*1024)
 #define TX_AHB_BUF_SIZE 1024
-
+#define SLATE_HEALTH_CHECK     BIT(23)
 #define SLATE_OK_SLP_RBSC      BIT(24)
 #define SLATE_OK_SLP_S2R       BIT(25)
 #define SLATE_OK_SLP_S2D      (BIT(25) | BIT(24))
@@ -146,6 +146,7 @@ static void *slate_com_drv;
 static uint32_t g_slav_status_reg;
 static uint32_t g_slave_status_auto_clear_reg;
 static bool is_hibernate;
+static bool s2a_status;
 
 /* SLATECOM client callbacks set-up */
 static void send_input_events(struct work_struct *work);
@@ -756,6 +757,12 @@ static int is_slate_resume(void *handle, uint32_t *slav_status_reg,
 	return ((*slav_status_reg) & BIT(31));
 }
 
+void update_s2a_status(bool s2a_status_value)
+{
+	s2a_status = s2a_status_value;
+}
+EXPORT_SYMBOL_GPL(update_s2a_status);
+
 static int slatecom_resume_l(void *handle)
 {
 	struct slate_context *cntx;
@@ -763,6 +770,7 @@ static int slatecom_resume_l(void *handle)
 	uint32_t slav_status_auto_clear_reg = 0;
 	int retry = 0;
 	int ret = 0;
+	uint32_t cmnd_reg = 0;
 
 	if (handle == NULL) {
 		SLATECOM_ERR("slatecom handle null\n");
@@ -793,7 +801,7 @@ static int slatecom_resume_l(void *handle)
 		goto unlock;
 	}
 
-	if (!(g_slav_status_reg & BIT(31))) {
+	if (!(g_slav_status_reg & BIT(31)) || !s2a_status) {
 		SLATECOM_ERR("Slate boot is not complete, skip SPI resume\n");
 		goto unlock;
 	}
@@ -823,6 +831,18 @@ static int slatecom_resume_l(void *handle)
 		retry++;
 	} while (retry < MAX_RETRY);
 
+	reinit_completion(&slate_resume_wait);
+	cmnd_reg |= SLATE_HEALTH_CHECK;
+	ret = slatecom_reg_write_cmd(cntx,
+	SLATE_CMND_REG, 1, &cmnd_reg, false);
+	if (ret < 0)
+		SLATECOM_ERR("SLATE_HEALTH_CHECK write cmd failed\n");
+	ret = wait_for_completion_timeout(&slate_resume_wait,
+	msecs_to_jiffies(SLATE_RESUME_IRQ_TIMEOUT));
+	SLATECOM_INFO("slate health check ret:%d\n", ret);
+
+	if (atomic_read(&ok_to_sleep) == 0)
+		goto complete;
 	if (retry == MAX_RETRY) {
 		mutex_unlock(&slate_resume_mutex);
 		/* SLATE failed to resume. Trigger watchdog. */

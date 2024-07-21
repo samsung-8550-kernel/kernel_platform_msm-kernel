@@ -126,6 +126,10 @@
  *   ->tasklist_lock            (memory_failure, collect_procs_ao)
  */
 
+/* Export tracepoints that act as a bare tracehook */
+EXPORT_TRACEPOINT_SYMBOL_GPL(mm_filemap_delete_from_page_cache);
+EXPORT_TRACEPOINT_SYMBOL_GPL(mm_filemap_add_to_page_cache);
+
 static void page_cache_delete(struct address_space *mapping,
 				   struct page *page, void *shadow)
 {
@@ -1714,7 +1718,8 @@ __sched int __lock_page_or_retry(struct page *page, struct mm_struct *mm,
 		if (flags & FAULT_FLAG_RETRY_NOWAIT)
 			return 0;
 
-		mmap_read_unlock(mm);
+		if (!(flags & FAULT_FLAG_SPECULATIVE))
+			mmap_read_unlock(mm);
 		if (flags & FAULT_FLAG_KILLABLE)
 			wait_on_page_locked_killable(page);
 		else
@@ -1726,7 +1731,8 @@ __sched int __lock_page_or_retry(struct page *page, struct mm_struct *mm,
 
 		ret = __lock_page_killable(page);
 		if (ret) {
-			mmap_read_unlock(mm);
+			if (!(flags & FAULT_FLAG_SPECULATIVE))
+				mmap_read_unlock(mm);
 			return 0;
 		}
 	} else {

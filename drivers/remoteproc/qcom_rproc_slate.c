@@ -106,6 +106,7 @@ struct pil_mdt {
  * @app_status: status of tz app loading
  * @is_ready: Is slate chip up
  * @err_ready: The error ready signal
+ * @shutdown_done: The shutdown done signal
  * @region_start: DMA handle for loading FW
  * @region_end: DMA address indicating end of DMA buffer
  * @region: CPU address for DMA buffer
@@ -144,6 +145,7 @@ struct qcom_slate {
 	int app_status;
 	bool is_ready;
 	struct completion err_ready;
+	struct completion shutdown_done;
 
 	phys_addr_t region_start;
 	phys_addr_t region_end;
@@ -159,6 +161,8 @@ struct qcom_slate {
 	phys_addr_t mem_phys;
 	void *mem_region;
 	size_t mem_size;
+
+	struct wakeup_source rproc_slate_ws;
 };
 
 static irqreturn_t slate_status_change(int irq, void *dev_id);
@@ -316,9 +320,12 @@ static irqreturn_t slate_status_change(int irq, void *dev_id)
 		return IRQ_HANDLED;
 
 	value = gpio_get_value(drvdata->gpios[0]);
+	update_s2a_status(value);
+
 	if (value && !drvdata->is_ready) {
 		dev_info(drvdata->dev,
 			"SLATE services are up and running: irq state changed 0->1\n");
+		__pm_relax(&drvdata->rproc_slate_ws);
 		drvdata->is_ready = true;
 		complete(&drvdata->err_ready);
 		slate_tz_req.tzapp_slate_cmd = SLATE_RPROC_UP_INFO;
@@ -333,10 +340,12 @@ static irqreturn_t slate_status_change(int irq, void *dev_id)
 			"SLATE got unexpected reset: irq state changed 1->0\n");
 			/* skip dump collection and return with shutdown completion signal */
 			if (is_slate_unload_only()) {
-				pr_err("Received shutdown_only request with value: %d\n", is_slate_unload_only());
-				complete(&drvdata->err_ready);
+				dev_info(drvdata->dev,
+					"Received shutdown_only request\n");
+				complete(&drvdata->shutdown_done);
 				return IRQ_HANDLED;
 			}
+		__pm_stay_awake(&drvdata->rproc_slate_ws);
 		queue_work(drvdata->slate_queue, &drvdata->restart_work);
 	} else {
 		dev_err(drvdata->dev, "SLATE status irq: unknown status\n");
@@ -434,8 +443,10 @@ static int slate_dt_parse_gpio(struct platform_device *pdev,
 
 	val = of_get_named_gpio(pdev->dev.of_node,
 					"qcom,slate2ap-status-gpio", 0);
-	if (val >= 0)
+	if (val >= 0) {
 		drvdata->gpios[0] = val;
+		update_s2a_status(gpio_get_value(drvdata->gpios[0]));
+	}
 	else {
 		pr_err("SLATE status gpio not found, error=%d\n", val);
 		return -EINVAL;
@@ -524,6 +535,30 @@ static int wait_for_err_ready(struct qcom_slate *slate_data)
 			msecs_to_jiffies(10000));
 	if (!ret) {
 		pr_err("[%s]: Error ready timed out\n",
+			slate_data->firmware_name);
+		return -ETIMEDOUT;
+	}
+	return 0;
+}
+
+/**
+ * wait_for_shutdown_done() - Called in power_down to wait for shutdown done.
+ * Signal waiting function.
+ * @slate_data: SLATE RPROC private structure.
+ *
+ * Return: 0 on success. Error code on failure.
+ */
+static int wait_for_shutdown_done(struct qcom_slate *slate_data)
+{
+	int ret;
+
+	if ((!slate_data->status_irq))
+		return 0;
+
+	ret = wait_for_completion_timeout(&slate_data->shutdown_done,
+			msecs_to_jiffies(10000));
+	if (!ret) {
+		pr_err("[%s]: shutdown done timed out\n",
 			slate_data->firmware_name);
 		return -ETIMEDOUT;
 	}
@@ -707,7 +742,7 @@ static void slate_coredump(struct rproc *rproc)
 			 */
 			/* By this time if S2A is not pulled then wait for it to go LOW */
 			if (gpio_get_value(slate_data->gpios[0])) {
-				ret = wait_for_err_ready(slate_data);
+				ret = wait_for_shutdown_done(slate_data);
 				if (ret) {
 					dev_err(slate_data->dev,
 					"[%s:%d]: Timed out waiting for error ready: %s!\n",
@@ -1069,7 +1104,7 @@ static int slate_stop(struct rproc *rproc)
 
 	/* wait for slate shutdown completion in exclusive slate shutdown request */
 	if (is_slate_unload_only()) {
-		ret = wait_for_err_ready(slate_data);
+		ret = wait_for_shutdown_done(slate_data);
 		if (ret) {
 			dev_err(slate_data->dev,
 			"[%s:%d]: Timed out waiting for error ready: %s!\n",
@@ -1170,6 +1205,10 @@ static int rproc_slate_driver_probe(struct platform_device *pdev)
 	slate = (struct qcom_slate *)rproc->priv;
 
 	slate->dev = &pdev->dev;
+
+	/* Add wake lock */
+	wakeup_source_add(&slate->rproc_slate_ws);
+
 	/* Read GPIO configuration */
 	ret = slate_dt_parse_gpio(pdev, slate);
 	if (ret)
@@ -1232,6 +1271,7 @@ static int rproc_slate_driver_probe(struct platform_device *pdev)
 		goto destroy_wq;
 
 	init_completion(&slate->err_ready);
+	init_completion(&slate->shutdown_done);
 	pr_debug("Slate probe is completed\n");
 	return 0;
 
