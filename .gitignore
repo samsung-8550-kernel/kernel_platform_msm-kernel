@@ -167,3 +167,6 @@ arch/*/boot/dts/vendor
 
 # Documentation toolchain
 sphinx_*/
+
+# kernel build script
+kernel-build.sh
