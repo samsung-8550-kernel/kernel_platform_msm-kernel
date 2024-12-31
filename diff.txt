@@ -10,8 +10,9 @@ drivers: Import SAMSUNG changes
 drivers/vibrator: Import SAMSUNG changes
 drivers/uwb: Import SAMSUNG changes
 drivers/usb: Import SAMSUNG changes
+drivers/thermal: Import SAMSUNG changes
 drivers/switch: Import SAMSUNG changes
-drivers/soc/qcom: Import SAMSUNG changes
+drivers/soc/qcom: Import SAMSUNG changes -- redo
 drivers/sensors_lego: Import SAMSUNG changes
 drivers/sensors: Import SAMSUNG changes
 drivers/secdp: Import SAMSUNG changes
@@ -19,6 +20,7 @@ drivers/sec_panel_notifier: Import SAMSUNG changes
 drivers/scsi/ufs: Import SAMSUNG changes
 drivers/samsung: Import SAMSUNG changes
 drivers/rtc: Import SAMSUNG changes
+drivers/rpmsg: Import SAMSUNG changes
 drivers/remoteproc: Import SAMSUNG changes
 drivers/regulator: Import SAMSUNG changes
 drivers/pci: Import SAMSUNG changes
@@ -31,12 +33,12 @@ drivers/mfd: Import SAMSUNG changes
 drivers/leds: Import SAMSUNG changes
 drivers/input/sec_input: Import SAMSUNG changes
 drivers/input/misc: Import SAMSUNG changes
+drivers/input/input_boost: Import SAMSUNG changes
 drivers/hwmon/sec_thermistor: Import SAMSUNG changes
-drivers/hid/usbhid: Import SAMSUNG changes
 drivers/firmware: Import SAMSUNG changes
 drivers/fingerprint: Import SAMSUNG changes
 drivers/cpuidle/governors: Import SAMSUNG changes
-drivers/clk: Import SAMSUNG changes
+drivers/clk: Import SAMSUNG changes -- redo
 drivers/battery: Import SAMSUNG changes
 drivers/android: Import SAMSUNG changes
 drivers/adsp_factory: Import SAMSUNG changes
