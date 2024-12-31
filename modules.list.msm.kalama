@@ -1,3 +1,4 @@
+sec_log_buf.ko
 qcom_wdt_core.ko
 gh_virt_wdt.ko
 qcom_cpu_vendor_hooks.ko
@@ -78,6 +79,7 @@ pmu_vendor.ko
 pmu_scmi.ko
 qcom-spmi-pmic.ko
 spmi-pmic-arb.ko
+pinctrl-spmi-gpio.ko
 qcom-reboot-reason.ko
 qcom_rpmh.ko
 qcom-scm.ko
@@ -86,6 +88,15 @@ qrtr.ko
 qti-regmap-debugfs.ko
 regmap-spmi.ko
 rtc-pm8xxx.ko
+sec_class.ko
+sec_key_notifier.ko
+i2c-gpio.ko
+gpio-pca953x.ko
+pmic_class.ko
+s2dos05-regulator.ko
+mfd_s2mpb02.ko
+s2mpb02-regulator.ko
+s2mpb03.ko
 secure_buffer.ko
 smem.ko
 socinfo.ko
